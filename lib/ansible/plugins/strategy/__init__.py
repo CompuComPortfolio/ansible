@@ -636,26 +636,29 @@ class StrategyBase:
                 self._tqm.send_callback('v2_runner_on_failed', tr)
             return []
 
+        temp_vars = included_file._task.vars.copy()
+        temp_vars.update(included_file._args)
+        # pop tags out of the include args, if they were specified there, and assign
+        # them to the include. If the include already had tags specified, we raise an
+        # error so that users know not to specify them both ways
+        tags = temp_vars.pop('tags', [])
+        if isinstance(tags, string_types):
+            tags = tags.split(',')
+        if len(tags) > 0:
+            if len(b._parent.tags) > 0:
+                raise AnsibleParserError("Include tasks should not specify tags in more than one way (both via args and directly on the task). Mixing tag specify styles is prohibited for whole import hierarchy, not only for single import statement",
+                        obj=included_file._task._ds)
+            display.deprecated("You should not specify tags in the include parameters. All tags should be specified using the task-level option")
+            included_file._task.tags = tags
+        included_file._task.vars = temp_vars
+
         # set the vars for this task from those specified as params to the include
         for b in block_list:
             # first make a copy of the including task, so that each has a unique copy to modify
-            b._parent = included_file._task.copy()
+            #b._parent = included_file._task
             # then we create a temporary set of vars to ensure the variable reference is unique
-            temp_vars = b._parent.vars.copy()
-            temp_vars.update(included_file._args.copy())
-            # pop tags out of the include args, if they were specified there, and assign
-            # them to the include. If the include already had tags specified, we raise an
-            # error so that users know not to specify them both ways
-            tags = temp_vars.pop('tags', [])
-            if isinstance(tags, string_types):
-                tags = tags.split(',')
-            if len(tags) > 0:
-                if len(b._parent.tags) > 0:
-                    raise AnsibleParserError("Include tasks should not specify tags in more than one way (both via args and directly on the task). Mixing tag specify styles is prohibited for whole import hierarchy, not only for single import statement",
-                            obj=included_file._task._ds)
-                display.deprecated("You should not specify tags in the include parameters. All tags should be specified using the task-level option")
-                b._parent.tags = tags
-            b._parent.vars = temp_vars
+            #b._parent.vars = temp_vars
+            pass
 
         # finally, send the callback and return the list of blocks loaded
         self._tqm.send_callback('v2_playbook_on_include', included_file)
